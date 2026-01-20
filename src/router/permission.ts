@@ -28,7 +28,7 @@ router.beforeEach(async (to, _from, next) => {
   console.log("当前路由：", to.path, "token：", token)
 
   //登出
-  // userStore.logout()
+  //userStore.logout()
 
   // 判断该用户是否已经登录
   if (!token) {
