@@ -19,27 +19,27 @@ const startExe = async (exeType) => {
   switch (exeType) {
     // 预处理程序
     case "preprocess-impact":
-      exePath = "E:\\程序01\\exe\\GETexe\\dist\\main.exe" // 冲击预处理程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe\\dist\\main.exe" // 冲击预处理程序路径
       break
     case "preprocess-structure":
-      exePath = "E:\\程序01\\exe\\GETexe2\\dist\\main.exe" // 结构预处理程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe2\\dist\\main.exe" // 结构预处理程序路径
       break
     case "preprocess-multibody":
-      exePath = "E:\\程序01\\exe\\GETexe3\\dist\\main.exe" // 多体预处理程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe3\\dist\\main.exe" // 多体预处理程序路径
       break
     // 求解器程序
     case "solver-impact":
-      exePath = "E:\\程序01\\exe\\GETexe4\\dist\\main.exe" // 冲击求解器程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe4\\dist\\main.exe" // 冲击求解器程序路径
       break
     case "solver-structure":
-      exePath = "E:\\程序01\\exe\\GETexe4\\dist\\main.exe" // 结构求解器程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe4\\dist\\main.exe" // 结构求解器程序路径
       break
     case "solver-multibody":
-      exePath = "E:\\程序01\\exe\\GETexe4\\dist\\main.exe" // 多体求解器程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe4\\dist\\main.exe" // 多体求解器程序路径
       break
     // 后处理程序
     case "postprocess":
-      exePath = "E:\\程序01\\exe\\GETexe5\\dist\\main.exe" // 后处理程序路径
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe5\\dist\\main.exe" // 后处理程序路径
       break
     default:
       throw new Error("无效的程序类型")
