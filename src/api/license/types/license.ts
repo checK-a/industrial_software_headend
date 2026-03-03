@@ -11,6 +11,8 @@ export interface PageData<T> {
   current: number
 }
 
+export type LicenseRequestStatus = "PENDING" | "APPROVED" | "REJECTED"
+
 export interface ModuleCategory {
   categoryId: string
   name: string
@@ -19,43 +21,10 @@ export interface ModuleCategory {
 
 export interface LicenseModule {
   moduleId: string
-  moduleNo: string
+  moduleNo?: string
   name: string
   description?: string
   categoryId: string
-}
-
-export interface ModuleParams {
-  validDateRange: [string, string] | null
-  usageCount: number | null
-  permissions: string[]
-}
-
-export interface LicenseModuleConfig {
-  moduleId: string
-  validFrom: string
-  validTo: string
-  usageCount: number
-  permissions: string[]
-}
-
-export interface LicenseDetail {
-  licenseId: string
-  licenseNo: string
-  modules: LicenseModuleConfig[]
-  status: string
-  createdAt: string
-  expiresAt: string
-}
-
-export interface LicenseSavePayload {
-  licenseId?: string
-  modules: LicenseModuleConfig[]
-}
-
-export interface LicenseSaveResult {
-  licenseId: string
-  licenseNo: string
 }
 
 export interface LicenseRequestPayload {
@@ -66,41 +35,29 @@ export interface LicenseRequestPayload {
   validFrom: string
   validTo: string
   usageCount: number
-  permissions: string[]
 }
 
 export interface LicenseRequestItem extends LicenseRequestPayload {
   requestId: string
   userName: string
-  categoryName: string
-  moduleName: string
-  status: "pending" | "approved" | "rejected"
+  status: LicenseRequestStatus
   createdAt: string
   licenseNo?: string
+  categoryName?: string
+  moduleName?: string
 }
 
-export interface LicenseListQuery {
+export interface LicenseRequestQuery {
+  moduleKeyword?: string
+  status?: LicenseRequestStatus | ""
+  page?: number
+  size?: number
+}
+
+export interface LicenseRequestSearchQuery {
   pageNum: number
   pageSize: number
-  licenseNo?: string
+  moduleKeyword?: string
   categoryId?: string
-  status?: string
-}
-
-export interface LicenseItem {
-  licenseId: string
-  licenseNo: string
-  categoryId: string
-  categoryName: string
-  moduleId: string
-  moduleNo: string
-  moduleName: string
-  validFrom: string
-  validTo: string
-  usageCount: number
-  permissions: string[]
-  userName: string
-  status: string
-  createdAt: string
-  expiresAt: string
+  status?: LicenseRequestStatus | ""
 }

@@ -12,55 +12,65 @@ import {
 import type { UploadRequestOptions } from "element-plus"
 import LicenseSearchForm from "./components/LicenseSearchForm.vue"
 import LicenseTable from "./components/LicenseTable.vue"
-import type { LicenseItem, LicenseListQuery, LicenseRequestItem, ModuleCategory } from "@/api/license/types/license"
-import { LICENSE_PERMISSIONS, LICENSE_REQUEST_STATUS_OPTIONS } from "@/constants/license"
+import type {
+  ApiResponse,
+  LicenseRequestItem,
+  LicenseRequestQuery,
+  LicenseRequestSearchQuery,
+  LicenseRequestStatus,
+  ModuleCategory,
+  PageData
+} from "@/api/license/types/license"
+import { LICENSE_REQUEST_STATUS_OPTIONS } from "@/constants/license"
 import {
   approveLicenseRequestApi,
   approveLicenseRequestMock,
-  getLicenseListApi,
-  getLicenseListMock,
-  getModuleCategoriesApi,
-  getModuleCategoriesMock,
+  fillRequestDisplayNames,
   getLicenseRequestsApi,
   getLicenseRequestsMock,
+  getModuleCategoriesApi,
+  getModuleCategoriesMock,
+  getModulesByCategoryApi,
+  getModulesByCategoryMock,
   rejectLicenseRequestApi,
   rejectLicenseRequestMock,
   uploadLicenseFileApi,
   uploadLicenseFileMock
 } from "@/api/license"
 
+const CATEGORY_FILTER_FETCH_SIZE = 1000
+
 const categories = ref<ModuleCategory[]>([])
-const query = ref<LicenseListQuery>({
+
+const requestQuery = ref<LicenseRequestSearchQuery>({
   pageNum: 1,
   pageSize: 10,
-  licenseNo: "",
+  moduleKeyword: "",
   categoryId: "",
   status: ""
 })
-const requestQuery = ref<LicenseListQuery>({
+
+const allocatedQuery = ref<LicenseRequestSearchQuery>({
   pageNum: 1,
   pageSize: 10,
-  licenseNo: "",
+  moduleKeyword: "",
   categoryId: "",
-  status: ""
+  status: "APPROVED"
 })
-const licenses = ref<LicenseItem[]>([])
-const licenseRequests = ref<LicenseRequestItem[]>([])
-const total = ref(0)
-const loading = ref(false)
-const errorMessage = ref("")
+
+const requestRows = ref<LicenseRequestItem[]>([])
+const allocatedRows = ref<LicenseRequestItem[]>([])
+const requestTotal = ref(0)
+const allocatedTotal = ref(0)
+
 const requestLoading = ref(false)
+const allocatedLoading = ref(false)
 const requestErrorMessage = ref("")
+const allocatedErrorMessage = ref("")
+
 const uploadingRequestMap = ref<Record<string, boolean>>({})
 const detailVisible = ref(false)
-const selectedLicense = ref<LicenseItem | null>(null)
-
-const permissionLabelMap = computed(() =>
-  LICENSE_PERMISSIONS.reduce<Record<string, string>>((acc, item) => {
-    acc[item.value] = item.label
-    return acc
-  }, {})
-)
+const selectedLicense = ref<LicenseRequestItem | null>(null)
 
 const requestStatusLabelMap = computed(() =>
   LICENSE_REQUEST_STATUS_OPTIONS.reduce<Record<string, string>>((acc, item) => {
@@ -69,47 +79,75 @@ const requestStatusLabelMap = computed(() =>
   }, {})
 )
 
-const requestStatusTypeMap: Record<LicenseRequestItem["status"], "warning" | "success" | "danger"> = {
-  pending: "warning",
-  approved: "success",
-  rejected: "danger"
+const requestStatusTypeMap: Record<LicenseRequestStatus, "warning" | "success" | "danger"> = {
+  PENDING: "warning",
+  APPROVED: "success",
+  REJECTED: "danger"
 }
 
-const selectedPermissionLabels = computed(() => {
-  if (!selectedLicense.value) return []
-  return selectedLicense.value.permissions.map((item) => permissionLabelMap.value[item] || item)
-})
-
-const filteredRequests = computed(() => {
-  const { categoryId, status } = requestQuery.value
-  return licenseRequests.value.filter((item) => {
-    const matchCategory = categoryId ? item.categoryId === categoryId : true
-    const matchStatus = status ? item.status === status : true
-    return matchCategory && matchStatus
-  })
-})
-
 const getRequestStatusLabel = (row: LicenseRequestItem) => {
-  if (row.status === "approved" && !row.licenseNo) return "待上传"
+  if (row.status === "APPROVED" && !row.licenseNo) return "待上传"
   return requestStatusLabelMap.value[row.status] || row.status
 }
 
 const getRequestStatusType = (row: LicenseRequestItem) => {
-  if (row.status === "approved" && !row.licenseNo) return "warning"
+  if (row.status === "APPROVED" && !row.licenseNo) return "warning"
   return requestStatusTypeMap[row.status]
 }
 
-const fetchCategories = async () => {
+type RequestFetcher = (params: LicenseRequestQuery) => Promise<ApiResponse<PageData<LicenseRequestItem>>>
+
+const loadCatalog = async () => {
   try {
     const response = await getModuleCategoriesApi()
-    if (response.code === 200) {
-      categories.value = response.data
-    } else {
-      ElMessage.error(response.message || "加载模块分类失败")
-    }
+    categories.value = response.data
   } catch (error) {
     const mockResponse = await getModuleCategoriesMock()
     categories.value = mockResponse.data
+  }
+
+  await Promise.all(
+    categories.value.map(async (category) => {
+      try {
+        await getModulesByCategoryApi(category.categoryId)
+      } catch (error) {
+        await getModulesByCategoryMock(category.categoryId)
+      }
+    })
+  )
+}
+
+const queryRequestList = async (
+  query: LicenseRequestSearchQuery,
+  fetcher: RequestFetcher
+): Promise<{ records: LicenseRequestItem[]; total: number }> => {
+  const hasCategoryFilter = Boolean(query.categoryId)
+
+  const response = await fetcher({
+    moduleKeyword: query.moduleKeyword,
+    status: query.status || undefined,
+    page: hasCategoryFilter ? 1 : query.pageNum,
+    size: hasCategoryFilter ? CATEGORY_FILTER_FETCH_SIZE : query.pageSize
+  })
+
+  let records = fillRequestDisplayNames(response.data.records)
+
+  if (query.categoryId) {
+    records = records.filter((item) => item.categoryId === query.categoryId)
+  }
+
+  if (hasCategoryFilter) {
+    const start = (query.pageNum - 1) * query.pageSize
+    const end = start + query.pageSize
+    return {
+      records: records.slice(start, end),
+      total: records.length
+    }
+  }
+
+  return {
+    records,
+    total: response.data.total
   }
 }
 
@@ -117,80 +155,98 @@ const fetchRequests = async () => {
   requestLoading.value = true
   requestErrorMessage.value = ""
   try {
-    const response = await getLicenseRequestsApi()
-    if (response.code === 200) {
-      licenseRequests.value = response.data
-    } else {
-      ElMessage.error(response.message || "加载许可证申请列表失败")
-    }
+    const { records, total } = await queryRequestList(requestQuery.value, getLicenseRequestsApi)
+    requestRows.value = records
+    requestTotal.value = total
   } catch (error) {
-    requestErrorMessage.value = "加载许可证申请列表失败，已展示模拟数据。"
-    const mockResponse = await getLicenseRequestsMock()
-    licenseRequests.value = mockResponse.data
+    requestErrorMessage.value = "加载申请记录失败，已切换到本地模拟数据。"
+    const { records, total } = await queryRequestList(requestQuery.value, getLicenseRequestsMock)
+    requestRows.value = records
+    requestTotal.value = total
   } finally {
     requestLoading.value = false
   }
 }
 
-const fetchList = async () => {
-  loading.value = true
-  errorMessage.value = ""
+const fetchAllocatedRequests = async () => {
+  allocatedLoading.value = true
+  allocatedErrorMessage.value = ""
   try {
-    const response = await getLicenseListApi(query.value)
-    if (response.code === 200) {
-      licenses.value = response.data.records
-      total.value = response.data.total
-    } else {
-      ElMessage.error(response.message || "加载许可证列表失败")
-    }
+    const { records, total } = await queryRequestList(
+      {
+        ...allocatedQuery.value,
+        status: (allocatedQuery.value.status || "APPROVED") as LicenseRequestStatus
+      },
+      getLicenseRequestsApi
+    )
+    allocatedRows.value = records
+    allocatedTotal.value = total
   } catch (error) {
-    errorMessage.value = "加载许可证列表失败，已展示模拟数据。"
-    const mockResponse = await getLicenseListMock(query.value)
-    licenses.value = mockResponse.data.records
-    total.value = mockResponse.data.total
+    allocatedErrorMessage.value = "加载已分配许可证失败，已切换到本地模拟数据。"
+    const { records, total } = await queryRequestList(
+      {
+        ...allocatedQuery.value,
+        status: (allocatedQuery.value.status || "APPROVED") as LicenseRequestStatus
+      },
+      getLicenseRequestsMock
+    )
+    allocatedRows.value = records
+    allocatedTotal.value = total
   } finally {
-    loading.value = false
+    allocatedLoading.value = false
   }
-}
-
-const handleSearch = () => {
-  query.value.pageNum = 1
-  fetchList()
-}
-
-const handleReset = () => {
-  query.value = {
-    pageNum: 1,
-    pageSize: 10,
-    licenseNo: "",
-    categoryId: "",
-    status: ""
-  }
-  fetchList()
-}
-
-const handlePageChange = (page: number) => {
-  query.value.pageNum = page
-  fetchList()
 }
 
 const handleRequestSearch = () => {
   requestQuery.value.pageNum = 1
+  fetchRequests()
 }
 
 const handleRequestReset = () => {
   requestQuery.value = {
     pageNum: 1,
     pageSize: 10,
-    licenseNo: "",
+    moduleKeyword: "",
     categoryId: "",
     status: ""
   }
+  fetchRequests()
 }
 
-const handleView = (licenseId: string) => {
-  selectedLicense.value = licenses.value.find((item) => item.licenseId === licenseId) ?? null
+const handleAllocatedSearch = () => {
+  allocatedQuery.value.pageNum = 1
+  fetchAllocatedRequests()
+}
+
+const handleAllocatedReset = () => {
+  allocatedQuery.value = {
+    pageNum: 1,
+    pageSize: 10,
+    moduleKeyword: "",
+    categoryId: "",
+    status: "APPROVED"
+  }
+  fetchAllocatedRequests()
+}
+
+const handleRequestPageChange = (page: number) => {
+  requestQuery.value.pageNum = page
+  fetchRequests()
+}
+
+const handleAllocatedPageChange = (page: number) => {
+  allocatedQuery.value.pageNum = page
+  fetchAllocatedRequests()
+}
+
+const handleView = (requestId: string) => {
+  selectedLicense.value = allocatedRows.value.find((item) => item.requestId === requestId) ?? null
   detailVisible.value = true
+}
+
+const mergeRow = (row: LicenseRequestItem, source: LicenseRequestItem) => {
+  const [patched] = fillRequestDisplayNames([source])
+  Object.assign(row, patched)
 }
 
 const handleApprove = async (row: LicenseRequestItem) => {
@@ -200,25 +256,26 @@ const handleApprove = async (row: LicenseRequestItem) => {
       cancelButtonText: "取消",
       type: "warning"
     })
-  } catch (error) {
-    if ((error as Error).message === "cancel") return
+  } catch {
     return
   }
 
   try {
     const response = await approveLicenseRequestApi(row.requestId)
     if (response.code === 200) {
-      Object.assign(row, response.data)
+      mergeRow(row, response.data)
       ElMessage.success("已同意申请，请上传许可证文件。")
+      await fetchAllocatedRequests()
     } else {
       ElMessage.error(response.message || "审批失败")
     }
   } catch (error) {
     try {
       const mockResponse = await approveLicenseRequestMock(row.requestId)
-      Object.assign(row, mockResponse.data)
+      mergeRow(row, mockResponse.data)
       ElMessage.success("已同意申请，请上传许可证文件。")
-    } catch (mockError) {
+      await fetchAllocatedRequests()
+    } catch {
       ElMessage.error("审批失败")
     }
   }
@@ -231,25 +288,26 @@ const handleReject = async (row: LicenseRequestItem) => {
       cancelButtonText: "取消",
       type: "warning"
     })
-  } catch (error) {
-    if ((error as Error).message === "cancel") return
+  } catch {
     return
   }
 
   try {
     const response = await rejectLicenseRequestApi(row.requestId)
     if (response.code === 200) {
-      Object.assign(row, response.data)
+      mergeRow(row, response.data)
       ElMessage.success("已拒绝该申请。")
+      await fetchAllocatedRequests()
     } else {
       ElMessage.error(response.message || "拒绝失败")
     }
   } catch (error) {
     try {
       const mockResponse = await rejectLicenseRequestMock(row.requestId)
-      Object.assign(row, mockResponse.data)
+      mergeRow(row, mockResponse.data)
       ElMessage.success("已拒绝该申请。")
-    } catch (mockError) {
+      await fetchAllocatedRequests()
+    } catch {
       ElMessage.error("拒绝失败")
     }
   }
@@ -260,11 +318,13 @@ const handleUploadRequest = async (row: LicenseRequestItem, options: UploadReque
   try {
     const formData = new FormData()
     formData.append("file", options.file)
+
     const response = await uploadLicenseFileApi(row.requestId, formData)
     if (response.code === 200) {
-      Object.assign(row, response.data)
-      ElMessage.success("许可证已上传。")
+      mergeRow(row, response.data)
+      ElMessage.success("许可证文件已上传。")
       options.onSuccess?.(response.data, options.file)
+      await fetchAllocatedRequests()
     } else {
       ElMessage.error(response.message || "上传失败")
       options.onError?.(new Error(response.message || "upload failed"))
@@ -272,9 +332,10 @@ const handleUploadRequest = async (row: LicenseRequestItem, options: UploadReque
   } catch (error) {
     try {
       const mockResponse = await uploadLicenseFileMock(row.requestId)
-      Object.assign(row, mockResponse.data)
-      ElMessage.success("许可证已上传。")
+      mergeRow(row, mockResponse.data)
+      ElMessage.success("许可证文件已上传。")
       options.onSuccess?.(mockResponse.data, options.file)
+      await fetchAllocatedRequests()
     } catch (mockError) {
       ElMessage.error("上传失败")
       options.onError?.(mockError as Error)
@@ -285,9 +346,9 @@ const handleUploadRequest = async (row: LicenseRequestItem, options: UploadReque
 }
 
 onMounted(async () => {
-  await fetchCategories()
+  await loadCatalog()
   await fetchRequests()
-  await fetchList()
+  await fetchAllocatedRequests()
 })
 </script>
 
@@ -296,15 +357,15 @@ onMounted(async () => {
     <div class="page-header">
       <div>
         <h2 class="title">管理员许可证管理</h2>
-        <p class="subtitle">审批申请、上传许可证，并查询已分配的许可证。</p>
+        <p class="subtitle">审批申请、上传证书，并按状态查询许可证记录。</p>
       </div>
     </div>
 
     <section class="section-card">
       <div class="section-header">
         <div>
-          <h3 class="section-title">许可证申请信息</h3>
-          <p class="section-desc">同意后上传第三方许可证文件。</p>
+          <h3 class="section-title">许可证申请记录</h3>
+          <p class="section-desc">待分配记录可审批，审批通过后可上传许可证文件。</p>
         </div>
       </div>
 
@@ -312,8 +373,7 @@ onMounted(async () => {
         v-model="requestQuery"
         :categories="categories"
         :loading="requestLoading"
-        :show-license-no="false"
-        :status-options="LICENSE_REQUEST_STATUS_OPTIONS"
+        :status-options="[...LICENSE_REQUEST_STATUS_OPTIONS]"
         status-label="申请状态"
         @search="handleRequestSearch"
         @reset="handleRequestReset"
@@ -322,7 +382,7 @@ onMounted(async () => {
       <el-alert v-if="requestErrorMessage" :title="requestErrorMessage" type="warning" show-icon class="error-alert" />
 
       <el-table
-        :data="filteredRequests"
+        :data="requestRows"
         style="width: 100%"
         v-loading="requestLoading"
         row-key="requestId"
@@ -337,13 +397,6 @@ onMounted(async () => {
           <template #default="{ row }">{{ row.validFrom }} ~ {{ row.validTo }}</template>
         </el-table-column>
         <el-table-column prop="usageCount" label="使用次数" min-width="100" />
-        <el-table-column label="权限" min-width="180">
-          <template #default="{ row }">
-            <el-tag v-for="item in row.permissions" :key="item" type="info" class="permission-tag">
-              {{ permissionLabelMap[item] || item }}
-            </el-tag>
-          </template>
-        </el-table-column>
         <el-table-column label="状态" min-width="110">
           <template #default="{ row }">
             <el-tag :type="getRequestStatusType(row)">
@@ -357,11 +410,11 @@ onMounted(async () => {
         <el-table-column prop="createdAt" label="申请时间" min-width="120" />
         <el-table-column label="操作" width="220">
           <template #default="{ row }">
-            <template v-if="row.status === 'pending'">
+            <template v-if="row.status === 'PENDING'">
               <el-button size="small" type="primary" @click="handleApprove(row)">同意</el-button>
               <el-button size="small" type="danger" @click="handleReject(row)">拒绝</el-button>
             </template>
-            <template v-else-if="row.status === 'approved' && !row.licenseNo">
+            <template v-else-if="row.status === 'APPROVED' && !row.licenseNo">
               <el-upload
                 :http-request="(options) => handleUploadRequest(row, options)"
                 :show-file-list="false"
@@ -376,56 +429,75 @@ onMounted(async () => {
           </template>
         </el-table-column>
       </el-table>
+
+      <el-pagination
+        background
+        layout="total, prev, pager, next, jumper"
+        :total="requestTotal"
+        :current-page="requestQuery.pageNum"
+        :page-size="requestQuery.pageSize"
+        @current-change="handleRequestPageChange"
+        class="pagination"
+        :disabled="requestLoading"
+      />
     </section>
 
     <section class="section-card">
       <div class="section-header">
         <div>
-          <h3 class="section-title">已分配的许可证</h3>
-          <p class="section-desc">仅支持查询。</p>
+          <h3 class="section-title">已分配许可证</h3>
+          <p class="section-desc">与申请记录使用同一个接口，通过状态区分已分配数据。</p>
         </div>
       </div>
 
       <LicenseSearchForm
-        v-model="query"
+        v-model="allocatedQuery"
         :categories="categories"
-        :loading="loading"
-        @search="handleSearch"
-        @reset="handleReset"
+        :loading="allocatedLoading"
+        :status-options="[{ label: '已分配', value: 'APPROVED' }]"
+        status-label="分配状态"
+        @search="handleAllocatedSearch"
+        @reset="handleAllocatedReset"
       />
 
-      <el-alert v-if="errorMessage" :title="errorMessage" type="warning" show-icon class="error-alert" />
+      <el-alert
+        v-if="allocatedErrorMessage"
+        :title="allocatedErrorMessage"
+        type="warning"
+        show-icon
+        class="error-alert"
+      />
 
-      <LicenseTable :items="licenses" :loading="loading" :show-disable="false" @view="handleView" />
+      <LicenseTable :items="allocatedRows" :loading="allocatedLoading" @view="handleView" />
 
       <el-pagination
         background
         layout="total, prev, pager, next, jumper"
-        :total="total"
-        :current-page="query.pageNum"
-        :page-size="query.pageSize"
-        @current-change="handlePageChange"
+        :total="allocatedTotal"
+        :current-page="allocatedQuery.pageNum"
+        :page-size="allocatedQuery.pageSize"
+        @current-change="handleAllocatedPageChange"
         class="pagination"
-        :disabled="loading"
+        :disabled="allocatedLoading"
       />
     </section>
 
-    <el-dialog v-model="detailVisible" title="许可证定制信息" width="640px">
+    <el-dialog v-model="detailVisible" title="许可证详情" width="640px">
       <el-descriptions v-if="selectedLicense" :column="2" border>
-        <el-descriptions-item label="许可证编号">{{ selectedLicense.licenseNo }}</el-descriptions-item>
+        <el-descriptions-item label="申请编号">{{ selectedLicense.requestId }}</el-descriptions-item>
+        <el-descriptions-item label="许可证编号">{{ selectedLicense.licenseNo || "-" }}</el-descriptions-item>
         <el-descriptions-item label="用户">{{ selectedLicense.userName }}</el-descriptions-item>
+        <el-descriptions-item label="客户名称">{{ selectedLicense.customerName }}</el-descriptions-item>
         <el-descriptions-item label="模块类别">{{ selectedLicense.categoryName }}</el-descriptions-item>
         <el-descriptions-item label="模块名称">{{ selectedLicense.moduleName }}</el-descriptions-item>
-        <el-descriptions-item label="使用期限"
-          >{{ selectedLicense.validFrom }} ~ {{ selectedLicense.validTo }}</el-descriptions-item
-        >
+        <el-descriptions-item label="MAC地址">{{ selectedLicense.macAddress }}</el-descriptions-item>
         <el-descriptions-item label="使用次数">{{ selectedLicense.usageCount }}</el-descriptions-item>
-        <el-descriptions-item label="可操作权限">
-          <el-tag v-for="item in selectedPermissionLabels" :key="item" type="info" class="permission-tag">
-            {{ item }}
-          </el-tag>
+        <el-descriptions-item label="使用期限">
+          {{ selectedLicense.validFrom }} ~ {{ selectedLicense.validTo }}
         </el-descriptions-item>
-        <el-descriptions-item label="状态">{{ selectedLicense.status }}</el-descriptions-item>
+        <el-descriptions-item label="申请状态">{{
+          requestStatusLabelMap[selectedLicense.status]
+        }}</el-descriptions-item>
       </el-descriptions>
     </el-dialog>
   </div>
@@ -490,10 +562,6 @@ onMounted(async () => {
 
 .error-alert {
   margin-bottom: 16px;
-}
-
-.permission-tag {
-  margin-right: 6px;
 }
 
 .muted {

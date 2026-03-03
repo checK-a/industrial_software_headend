@@ -1,35 +1,39 @@
 <script setup lang="ts">
 import { reactive, watch, withDefaults } from "vue"
 import { ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElButton } from "element-plus"
-import type { LicenseListQuery, ModuleCategory } from "@/api/license/types/license"
-import { LICENSE_STATUS_OPTIONS } from "@/constants/license"
+import type { LicenseRequestSearchQuery, LicenseRequestStatus, ModuleCategory } from "@/api/license/types/license"
+import { LICENSE_REQUEST_STATUS_OPTIONS } from "@/constants/license"
 
 const props = withDefaults(
   defineProps<{
-    modelValue: LicenseListQuery
+    modelValue: LicenseRequestSearchQuery
     categories: ModuleCategory[]
     loading: boolean
-    showLicenseNo?: boolean
-    statusOptions?: { label: string; value: string }[]
+    showModuleKeyword?: boolean
+    showCategory?: boolean
+    showStatus?: boolean
+    statusOptions?: { label: string; value: LicenseRequestStatus }[]
     statusLabel?: string
   }>(),
   {
-    showLicenseNo: true,
-    statusOptions: () => LICENSE_STATUS_OPTIONS,
-    statusLabel: "使用状态"
+    showModuleKeyword: true,
+    showCategory: true,
+    showStatus: true,
+    statusOptions: () => [...LICENSE_REQUEST_STATUS_OPTIONS],
+    statusLabel: "申请状态"
   }
 )
 
 const emit = defineEmits<{
-  (e: "update:modelValue", value: LicenseListQuery): void
+  (e: "update:modelValue", value: LicenseRequestSearchQuery): void
   (e: "search"): void
   (e: "reset"): void
 }>()
 
-const localQuery = reactive<LicenseListQuery>({
+const localQuery = reactive<LicenseRequestSearchQuery>({
   pageNum: props.modelValue.pageNum,
   pageSize: props.modelValue.pageSize,
-  licenseNo: props.modelValue.licenseNo ?? "",
+  moduleKeyword: props.modelValue.moduleKeyword ?? "",
   categoryId: props.modelValue.categoryId ?? "",
   status: props.modelValue.status ?? ""
 })
@@ -39,7 +43,7 @@ watch(
   (val) => {
     localQuery.pageNum = val.pageNum
     localQuery.pageSize = val.pageSize
-    localQuery.licenseNo = val.licenseNo ?? ""
+    localQuery.moduleKeyword = val.moduleKeyword ?? ""
     localQuery.categoryId = val.categoryId ?? ""
     localQuery.status = val.status ?? ""
   },
@@ -52,7 +56,7 @@ watch(
     emit("update:modelValue", {
       pageNum: localQuery.pageNum,
       pageSize: localQuery.pageSize,
-      licenseNo: localQuery.licenseNo || undefined,
+      moduleKeyword: localQuery.moduleKeyword || undefined,
       categoryId: localQuery.categoryId || undefined,
       status: localQuery.status || undefined
     })
@@ -61,7 +65,7 @@ watch(
 )
 
 const handleReset = () => {
-  localQuery.licenseNo = ""
+  localQuery.moduleKeyword = ""
   localQuery.categoryId = ""
   localQuery.status = ""
   emit("reset")
@@ -69,11 +73,11 @@ const handleReset = () => {
 </script>
 
 <template>
-  <el-form class="search-form" inline label-width="110px">
-    <el-form-item v-if="props.showLicenseNo" label="许可证编号">
-      <el-input v-model="localQuery.licenseNo" placeholder="请输入许可证编号" clearable />
+  <el-form class="search-form" inline label-width="95px">
+    <el-form-item v-if="props.showModuleKeyword" label="模块关键字">
+      <el-input v-model="localQuery.moduleKeyword" placeholder="请输入模块ID或模块名" clearable />
     </el-form-item>
-    <el-form-item label="模块类别">
+    <el-form-item v-if="props.showCategory" label="模块类别">
       <el-select v-model="localQuery.categoryId" placeholder="请选择模块类别" clearable style="width: 180px">
         <el-option
           v-for="item in props.categories"
@@ -83,7 +87,7 @@ const handleReset = () => {
         />
       </el-select>
     </el-form-item>
-    <el-form-item :label="props.statusLabel">
+    <el-form-item v-if="props.showStatus" :label="props.statusLabel">
       <el-select v-model="localQuery.status" placeholder="请选择状态" clearable style="width: 160px">
         <el-option v-for="item in props.statusOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>

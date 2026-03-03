@@ -53,7 +53,9 @@ export default (configEnv: ConfigEnv): UserConfigExport => {
         "/api": {
           target: "http://localhost:8081",
           ws: true,
-          changeOrigin: true
+          changeOrigin: true,
+          // 后端控制器使用 /license、/auth... 等根路径，这里去掉前缀 /api 再转发
+          rewrite: (path) => path.replace(/^\/api/, "")
         }
 
         // "/weather": {

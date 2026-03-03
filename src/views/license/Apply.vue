@@ -11,7 +11,6 @@ import {
   getModulesByCategoryApi,
   getModulesByCategoryMock
 } from "@/api/license"
-import { LICENSE_PERMISSIONS } from "@/constants/license"
 import { useUserStoreHook } from "@/store/modules/user"
 
 const userStore = useUserStoreHook()
@@ -21,15 +20,16 @@ const loading = ref(false)
 const moduleLoading = ref(false)
 const categories = ref<ModuleCategory[]>([])
 const modules = ref<LicenseModule[]>([])
+const moduleCache = ref<Record<string, LicenseModule[]>>({})
 const formRef = ref<FormInstance>()
+
 const form = ref({
   customerName: "",
   macAddress: "",
   categoryId: "",
   moduleId: "",
   validDateRange: [] as string[],
-  usageCount: 1,
-  permissions: [] as string[]
+  usageCount: 1
 })
 
 const rules = {
@@ -38,8 +38,7 @@ const rules = {
   categoryId: [{ required: true, message: "请选择模块类别", trigger: "change" }],
   moduleId: [{ required: true, message: "请选择模块名称", trigger: "change" }],
   validDateRange: [{ type: "array", required: true, message: "请选择使用期限", trigger: "change" }],
-  usageCount: [{ required: true, message: "请输入使用次数", trigger: "blur" }],
-  permissions: [{ type: "array", required: true, message: "请选择权限", trigger: "change" }]
+  usageCount: [{ required: true, message: "请输入使用次数", trigger: "blur" }]
 }
 
 const fetchCategories = async () => {
@@ -47,9 +46,9 @@ const fetchCategories = async () => {
     const response = await getModuleCategoriesApi()
     if (response.code === 200) {
       categories.value = response.data
-    } else {
-      ElMessage.error(response.message || "加载模块类别失败")
+      return
     }
+    ElMessage.error(response.message || "加载模块类别失败")
   } catch (error) {
     const mockResponse = await getModuleCategoriesMock()
     categories.value = mockResponse.data
@@ -61,16 +60,25 @@ const fetchModules = async (categoryId: string) => {
     modules.value = []
     return
   }
+
+  const cached = moduleCache.value[categoryId]
+  if (cached) {
+    modules.value = cached
+    return
+  }
+
   moduleLoading.value = true
   try {
     const response = await getModulesByCategoryApi(categoryId)
     if (response.code === 200) {
+      moduleCache.value[categoryId] = response.data
       modules.value = response.data
-    } else {
-      ElMessage.error(response.message || "加载模块列表失败")
+      return
     }
+    ElMessage.error(response.message || "加载模块列表失败")
   } catch (error) {
     const mockResponse = await getModulesByCategoryMock(categoryId)
+    moduleCache.value[categoryId] = mockResponse.data
     modules.value = mockResponse.data
   } finally {
     moduleLoading.value = false
@@ -84,7 +92,7 @@ const handleCategoryChange = async (categoryId: string) => {
 
 const resetForm = () => {
   formRef.value?.resetFields()
-  modules.value = []
+  modules.value = form.value.categoryId ? moduleCache.value[form.value.categoryId] || [] : []
 }
 
 const handleSubmit = async () => {
@@ -92,7 +100,6 @@ const handleSubmit = async () => {
   const valid = await formRef.value.validate().catch(() => false)
   if (!valid) return
 
-  loading.value = true
   const [validFrom, validTo] = form.value.validDateRange
   const payload: LicenseRequestPayload = {
     customerName: form.value.customerName.trim(),
@@ -101,9 +108,10 @@ const handleSubmit = async () => {
     moduleId: form.value.moduleId,
     validFrom,
     validTo,
-    usageCount: form.value.usageCount,
-    permissions: form.value.permissions
+    usageCount: form.value.usageCount
   }
+
+  loading.value = true
   try {
     const response = await createLicenseRequestApi(payload)
     if (response.code === 200) {
@@ -113,8 +121,8 @@ const handleSubmit = async () => {
       return
     }
   } catch (error) {
-    await createLicenseRequestMock(payload, userStore.username || "当前用户")
-    ElMessage.success("已使用本地模拟数据提交申请")
+    await createLicenseRequestMock(payload, userStore.username || "current_user")
+    ElMessage.success("后端不可用，已使用本地模拟数据提交")
   } finally {
     loading.value = false
   }
@@ -131,20 +139,26 @@ onMounted(fetchCategories)
     <div class="page-header">
       <div>
         <h2 class="title">许可证申请</h2>
-        <p class="subtitle">填写模块与使用权限，提交后等待管理员审批。</p>
+        <p class="subtitle">填写模块与使用期限，提交后等待管理员审批。</p>
       </div>
       <el-button type="primary" @click="dialogVisible = true">申请许可证</el-button>
     </div>
 
     <el-alert
-      title="申请信息将用于生成许可证，请确保模块、使用期限与权限填写准确。"
+      title="请确保客户信息、模块类别、模块名称和使用期限填写准确。"
       type="info"
       show-icon
       class="info-alert"
       :closable="false"
     />
 
-    <el-dialog v-model="dialogVisible" title="申请许可证" width="560px" @closed="resetForm">
+    <el-dialog
+      v-model="dialogVisible"
+      title="申请许可证"
+      width="560px"
+      :close-on-click-modal="false"
+      @closed="resetForm"
+    >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="110px">
         <el-form-item label="客户名称" prop="customerName">
           <el-input v-model="form.customerName" placeholder="请输入客户名称" clearable />
@@ -179,13 +193,6 @@ onMounted(fetchCategories)
         </el-form-item>
         <el-form-item label="使用次数" prop="usageCount">
           <el-input-number v-model="form.usageCount" :min="1" :step="1" controls-position="right" />
-        </el-form-item>
-        <el-form-item label="权限" prop="permissions">
-          <el-checkbox-group v-model="form.permissions">
-            <el-checkbox v-for="item in LICENSE_PERMISSIONS" :key="item.value" :label="item.value">
-              {{ item.label }}
-            </el-checkbox>
-          </el-checkbox-group>
         </el-form-item>
       </el-form>
       <template #footer>
