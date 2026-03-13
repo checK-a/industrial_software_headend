@@ -34,7 +34,8 @@ const normalizeStatus = (status: Nullable<string>): LicenseRequestStatus => {
   const upperStatus = String(status ?? "")
     .trim()
     .toUpperCase()
-  if (upperStatus === "APPROVED") return "APPROVED"
+  if (upperStatus === "VALID" || upperStatus === "APPROVED") return "VALID"
+  if (upperStatus === "OVERDUE") return "OVERDUE"
   if (upperStatus === "REJECTED") return "REJECTED"
   return "PENDING"
 }
@@ -175,11 +176,11 @@ let mockLicenseRequests: LicenseRequestItem[] = [
     userName: "张三",
     customerName: "华北工业集团",
     macAddress: "3C:52:82:1A:9F:01",
-    status: "APPROVED",
+    status: "VALID",
     categoryId: "solver",
     moduleId: "solver-impact-cpu",
     validFrom: "2024-07-01",
-    validTo: "2025-07-01",
+    validTo: "2026-07-01",
     usageCount: 120,
     createdAt: "2024-06-10",
     licenseNo: "LIC-2024-010"
@@ -202,13 +203,27 @@ let mockLicenseRequests: LicenseRequestItem[] = [
     userName: "李四",
     customerName: "东启精工",
     macAddress: "A4:5E:60:7B:31:9C",
-    status: "REJECTED",
+    status: "OVERDUE",
     categoryId: "post",
     moduleId: "post-impact",
     validFrom: "2024-05-01",
     validTo: "2024-11-01",
     usageCount: 40,
-    createdAt: "2024-05-20"
+    createdAt: "2024-05-20",
+    licenseNo: "LIC-2024-003"
+  },
+  {
+    requestId: "req-2024-004",
+    userName: "鐜嬩簲",
+    customerName: "鍗庡崡璁惧",
+    macAddress: "B7:4D:60:7B:31:9C",
+    status: "REJECTED",
+    categoryId: "post",
+    moduleId: "post-impact",
+    validFrom: "2024-06-01",
+    validTo: "2024-12-01",
+    usageCount: 20,
+    createdAt: "2024-05-26"
   }
 ]
 
@@ -286,7 +301,7 @@ export const getLicenseRequestsMock = async (
 }
 
 export const approveLicenseRequestMock = async (requestId: string): Promise<ApiResponse<LicenseRequestItem>> => {
-  const updated = updateRequestItem(requestId, { status: "APPROVED" })
+  const updated = updateRequestItem(requestId, { status: "VALID" })
   if (!updated) return Promise.reject(new Error("license request not found"))
   return successResponse(normalizeRequestItem(updated as unknown as Record<string, unknown>))
 }
@@ -304,7 +319,7 @@ export const uploadLicenseFileMock = async (
   const licenseNoValue = data?.get("licenseNo")
   const licenseNo =
     typeof licenseNoValue === "string" && licenseNoValue.trim() ? licenseNoValue.trim() : `LIC-UP-${Date.now()}`
-  const updated = updateRequestItem(requestId, { status: "APPROVED", licenseNo })
+  const updated = updateRequestItem(requestId, { status: "VALID", licenseNo })
   if (!updated) return Promise.reject(new Error("license request not found"))
   return successResponse(normalizeRequestItem(updated as unknown as Record<string, unknown>))
 }

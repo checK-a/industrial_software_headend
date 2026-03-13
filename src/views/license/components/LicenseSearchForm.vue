@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, watch, withDefaults } from "vue"
-import { ElForm, ElFormItem, ElInput, ElSelect, ElOption, ElButton } from "element-plus"
+import { ElButton, ElForm, ElFormItem, ElInput, ElOption, ElSelect } from "element-plus"
 import type { LicenseRequestSearchQuery, LicenseRequestStatus, ModuleCategory } from "@/api/license/types/license"
 import { LICENSE_REQUEST_STATUS_OPTIONS } from "@/constants/license"
 
@@ -12,7 +12,7 @@ const props = withDefaults(
     showModuleKeyword?: boolean
     showCategory?: boolean
     showStatus?: boolean
-    statusOptions?: { label: string; value: LicenseRequestStatus }[]
+    statusOptions?: Array<{ label: string; value: LicenseRequestStatus }>
     statusLabel?: string
   }>(),
   {
@@ -40,12 +40,12 @@ const localQuery = reactive<LicenseRequestSearchQuery>({
 
 watch(
   () => props.modelValue,
-  (val) => {
-    localQuery.pageNum = val.pageNum
-    localQuery.pageSize = val.pageSize
-    localQuery.moduleKeyword = val.moduleKeyword ?? ""
-    localQuery.categoryId = val.categoryId ?? ""
-    localQuery.status = val.status ?? ""
+  (value) => {
+    localQuery.pageNum = value.pageNum
+    localQuery.pageSize = value.pageSize
+    localQuery.moduleKeyword = value.moduleKeyword ?? ""
+    localQuery.categoryId = value.categoryId ?? ""
+    localQuery.status = value.status ?? ""
   },
   { deep: true }
 )
@@ -75,8 +75,9 @@ const handleReset = () => {
 <template>
   <el-form class="search-form" inline label-width="95px">
     <el-form-item v-if="props.showModuleKeyword" label="模块关键字">
-      <el-input v-model="localQuery.moduleKeyword" placeholder="请输入模块ID或模块名" clearable />
+      <el-input v-model="localQuery.moduleKeyword" placeholder="请输入模块 ID 或模块名称" clearable />
     </el-form-item>
+
     <el-form-item v-if="props.showCategory" label="模块类别">
       <el-select v-model="localQuery.categoryId" placeholder="请选择模块类别" clearable style="width: 180px">
         <el-option
@@ -87,11 +88,13 @@ const handleReset = () => {
         />
       </el-select>
     </el-form-item>
+
     <el-form-item v-if="props.showStatus" :label="props.statusLabel">
-      <el-select v-model="localQuery.status" placeholder="请选择状态" clearable style="width: 160px">
+      <el-select v-model="localQuery.status" placeholder="请选择状态" clearable style="width: 180px">
         <el-option v-for="item in props.statusOptions" :key="item.value" :label="item.label" :value="item.value" />
       </el-select>
     </el-form-item>
+
     <el-form-item>
       <el-button type="primary" :loading="props.loading" @click="emit('search')">查询</el-button>
       <el-button @click="handleReset">重置</el-button>
@@ -101,7 +104,7 @@ const handleReset = () => {
 
 <style scoped lang="scss">
 .search-form {
-  margin-bottom: 16px;
   width: 100%;
+  margin-bottom: 16px;
 }
 </style>

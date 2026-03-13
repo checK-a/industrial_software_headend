@@ -14,7 +14,11 @@ import {
   getModulesByCategoryApi,
   getModulesByCategoryMock
 } from "@/api/license"
-import { LICENSE_REQUEST_STATUS_OPTIONS } from "@/constants/license"
+import {
+  LICENSE_REQUEST_STATUS_LABELS,
+  LICENSE_REQUEST_STATUS_TYPES,
+  isAllocatedLicenseStatus
+} from "@/constants/license"
 import { useUserStoreHook } from "@/store/modules/user"
 
 const TEXT = {
@@ -48,19 +52,6 @@ const query = ref({
   pageNum: 1,
   pageSize: 10
 })
-
-const statusLabelMap = computed(() =>
-  LICENSE_REQUEST_STATUS_OPTIONS.reduce<Record<string, string>>((acc, item) => {
-    acc[item.value] = item.label
-    return acc
-  }, {})
-)
-
-const statusTypeMap: Record<LicenseRequestItem["status"], "warning" | "success" | "danger"> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger"
-}
 
 const isAdmin = computed(() => userStore.roles.includes("admin"))
 const currentUser = computed(() => userStore.username || "")
@@ -204,8 +195,8 @@ onMounted(async () => {
       <el-table-column prop="usageCount" :label="TEXT.usageCount" min-width="100" />
       <el-table-column :label="TEXT.status" min-width="110">
         <template #default="{ row }">
-          <el-tag :type="statusTypeMap[row.status]">
-            {{ statusLabelMap[row.status] || row.status }}
+          <el-tag :type="LICENSE_REQUEST_STATUS_TYPES[row.status]">
+            {{ LICENSE_REQUEST_STATUS_LABELS[row.status] || row.status }}
           </el-tag>
         </template>
       </el-table-column>
@@ -215,7 +206,12 @@ onMounted(async () => {
       <el-table-column prop="createdAt" :label="TEXT.createdAt" min-width="120" />
       <el-table-column :label="TEXT.action" width="140">
         <template #default="{ row }">
-          <el-button v-if="row.status === 'APPROVED'" size="small" type="primary" @click="handleDownload(row)">
+          <el-button
+            v-if="isAllocatedLicenseStatus(row.status) && row.licenseNo"
+            size="small"
+            type="primary"
+            @click="handleDownload(row)"
+          >
             {{ TEXT.download }}
           </el-button>
           <span v-else class="muted">--</span>

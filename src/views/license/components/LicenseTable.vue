@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ElTable, ElTableColumn, ElButton, ElTag } from "element-plus"
+import { ElButton, ElTable, ElTableColumn, ElTag } from "element-plus"
 import type { LicenseRequestItem } from "@/api/license/types/license"
+import { LICENSE_REQUEST_STATUS_LABELS, LICENSE_REQUEST_STATUS_TYPES } from "@/constants/license"
 
 const props = defineProps<{
   items: LicenseRequestItem[]
@@ -10,18 +11,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "view", requestId: string): void
 }>()
-
-const statusTypeMap: Record<LicenseRequestItem["status"], "success" | "warning" | "danger"> = {
-  PENDING: "warning",
-  APPROVED: "success",
-  REJECTED: "danger"
-}
-
-const statusLabelMap: Record<LicenseRequestItem["status"], string> = {
-  PENDING: "待分配",
-  APPROVED: "已分配",
-  REJECTED: "已拒绝"
-}
 </script>
 
 <template>
@@ -42,9 +31,11 @@ const statusLabelMap: Record<LicenseRequestItem["status"], string> = {
       <template #default="{ row }">{{ row.validFrom }} ~ {{ row.validTo }}</template>
     </el-table-column>
     <el-table-column prop="usageCount" label="使用次数" width="110" />
-    <el-table-column label="状态" width="120">
+    <el-table-column label="状态" width="150">
       <template #default="{ row }">
-        <el-tag :type="statusTypeMap[row.status]">{{ statusLabelMap[row.status] }}</el-tag>
+        <el-tag :type="LICENSE_REQUEST_STATUS_TYPES[row.status]">
+          {{ LICENSE_REQUEST_STATUS_LABELS[row.status] }}
+        </el-tag>
       </template>
     </el-table-column>
     <el-table-column prop="createdAt" label="申请时间" min-width="120" />

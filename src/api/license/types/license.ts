@@ -11,7 +11,7 @@ export interface PageData<T> {
   current: number
 }
 
-export type LicenseRequestStatus = "PENDING" | "APPROVED" | "REJECTED"
+export type LicenseRequestStatus = "PENDING" | "VALID" | "OVERDUE" | "REJECTED"
 
 export interface ModuleCategory {
   categoryId: string
