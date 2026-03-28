@@ -241,7 +241,6 @@ const handleCreateTask = async () => {
         type: taskForm.value.type,
         creator: taskForm.value.creator
       }
-      debugger
 
       // 从类型中提取计算资源信息
       let computeResource = ""

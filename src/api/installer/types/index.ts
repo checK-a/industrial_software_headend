@@ -5,7 +5,7 @@ interface Component {
   size: string
   description: string
   dynamicsDirection?: string
-  moduleType?: string
+  moduleType: string
   resourceType?: string
   address: string
 }
