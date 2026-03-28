@@ -91,7 +91,7 @@ const startStatusPolling = () => {
   }, 2000)
 }
 
-const startExe = async () => {
+const startExe = async (exeType) => {
   // 添加防重复点击保护
   if (positionLock.value) {
     console.log("正在处理其他操作，请稍后")
@@ -114,9 +114,10 @@ const startExe = async () => {
     statusMessage.value = "正在启动程序..."
 
     // 启动程序 - 无论任务类型如何，都调用同一个接口
-    const startResponse = await axios.get("http://localhost:3334/start-postprocess-exe", {
-      timeout: 30000 // 增加超时时间
-    })
+    const startResponse = await axios.get(
+      `http://localhost:3334/start-postprocess-${exeType !== "" ? `${exeType}-exe` : "exe"}`,
+      { timeout: 30000 } // 增加超时时间
+    )
 
     console.log("启动响应:", startResponse.data)
     statusMessage.value = "程序已启动，开始定位..."
@@ -152,10 +153,19 @@ const startExe = async () => {
 // 根据任务类型自动启动程序
 const autoStartByTaskType = () => {
   if (taskType.value && !isExeRunning.value) {
-    statusMessage.value = `检测到任务类型: ${taskType.value}，即将启动程序...`
-    setTimeout(() => {
-      startExe()
-    }, 1000) // 延迟1秒执行，确保UI更新
+    const exeTypeMap = {
+      通用后处理: "",
+      多体: "multibody"
+    }
+    const mappedType = exeTypeMap[taskType.value]
+    if (mappedType) {
+      statusMessage.value = `正在根据任务类型启动程序: ${taskType.value}`
+      setTimeout(() => {
+        startExe(mappedType)
+      }, 1000)
+    } else {
+      errorMessage.value = `未知的任务类型: ${taskType.value}`
+    }
   }
 }
 
@@ -274,9 +284,8 @@ onBeforeUnmount(() => {
   <div>
     <!-- 按钮区域 - 单个启动按钮 -->
     <div class="button-group">
-      <button @click="startExe" :disabled="isExeRunning || positionLock" class="exe-btn">
-        {{ isExeRunning ? "运行中" : "启动程序" }}
-      </button>
+      <button @click="startExe" :disabled="isExeRunning || positionLock" class="exe-btn">通用后处理</button>
+      <button @click="startExe('multibody')" :disabled="isExeRunning || positionLock">多体</button>
     </div>
 
     <div class="status-bar">

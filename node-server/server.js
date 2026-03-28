@@ -41,6 +41,9 @@ const startExe = async (exeType) => {
     case "postprocess":
       exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe5\\dist\\main.exe" // 后处理程序路径
       break
+    case "postprocess-multibody":
+      exePath = "E:\\Work\\Laboratory_tasks\\exe\\GETexe5\\dist\\main.exe" // 后处理程序路径
+      break
     default:
       throw new Error("无效的程序类型")
   }
@@ -340,6 +343,15 @@ app.get("/start-postprocess-exe", async (req, res) => {
   try {
     await startExe("postprocess")
     res.send("后处理程序已启动")
+  } catch (error) {
+    res.status(500).send(`启动失败: ${error.message}`)
+  }
+})
+
+app.get("/start-postprocess-multibody-exe", async (req, res) => {
+  try {
+    await startExe("postprocess-multibody")
+    res.send("多体后处理程序已启动")
   } catch (error) {
     res.status(500).send(`启动失败: ${error.message}`)
   }

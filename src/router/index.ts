@@ -1,6 +1,4 @@
 ﻿import { type RouteRecordRaw, createRouter, createWebHashHistory } from "vue-router"
-import { flatMultiLevelRoutes } from "./helper"
-import routeSettings from "@/config/route"
 
 const Layouts = () => import("@/layouts/index.vue")
 
@@ -229,10 +227,7 @@ export const asyncRoutes: RouteRecordRaw[] = [
 
 const router = createRouter({
   history: createWebHashHistory(),
-  routes: [
-    ...(routeSettings.thirdLevelRouteCache ? flatMultiLevelRoutes(constantRoutes) : constantRoutes),
-    ...asyncRoutes
-  ]
+  routes: [...constantRoutes, ...asyncRoutes]
 })
 
 /** 重置路由 */
@@ -266,7 +261,7 @@ export function resetRouter() {
     // 1. 递归移除整棵动态路由树，避免父路由残留导致重新登录后子路由无法恢复
     removeRouteTree(asyncRoutes)
     // 2. 重置路由配置为初始常驻路由
-    const initialRoutes = routeSettings.thirdLevelRouteCache ? flatMultiLevelRoutes(constantRoutes) : constantRoutes
+    const initialRoutes = constantRoutes
     router.options.routes = initialRoutes
     console.log("路由重置完成")
   } catch (err) {

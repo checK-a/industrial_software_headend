@@ -11,7 +11,7 @@ export interface task {
   simulationStage: string
   // 任务类型：
   /* 前处理：多体、结构、冲击
-     后处理：通用后处理
+     后处理：通用后处理、多体
      求解器：多体、结构、冲击GPU、冲击CPU */
   type: string
   // 状态：未启动、仿真中、暂停中

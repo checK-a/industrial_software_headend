@@ -37,6 +37,8 @@ const totalFiles = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(10)
 const isLoading = ref(false)
+// 搜索关键词
+const searchKeyword = ref("")
 
 // 上传相关状态
 const showUploadDialog = ref(false)
@@ -54,7 +56,8 @@ const fetchFiles = async () => {
     const response = await getFileListApi({
       dbType: selectedDatabase.value,
       pageNum: currentPage.value,
-      pageSize: pageSize.value
+      pageSize: pageSize.value,
+      keyword: searchKeyword.value
     })
 
     // 修改判断条件为数值比较
@@ -104,6 +107,19 @@ const handleDatabaseChange = () => {
 // 分页处理
 const handlePageChange = (page: number) => {
   currentPage.value = page
+  fetchFiles()
+}
+
+// 搜索处理
+const handleSearch = () => {
+  currentPage.value = 1
+  fetchFiles()
+}
+
+// 重置搜索
+const resetSearch = () => {
+  searchKeyword.value = ""
+  currentPage.value = 1
   fetchFiles()
 }
 
@@ -269,6 +285,20 @@ onMounted(() => {
       <el-select v-model="selectedDatabase" placeholder="请选择数据库" @change="handleDatabaseChange">
         <el-option v-for="db in databases" :key="db.id" :label="db.name" :value="db.id" />
       </el-select>
+
+      <div class="search-container">
+        <el-input
+          v-model="searchKeyword"
+          placeholder="请输入文件名关键词搜索"
+          clearable
+          @keydown.enter="handleSearch"
+          @clear="resetSearch"
+        >
+          <template #append>
+            <el-button @click="handleSearch">搜索</el-button>
+          </template>
+        </el-input>
+      </div>
 
       <el-button type="primary" @click="openUploadDialog" :disabled="!selectedDatabase"> 上传文件到该数据库 </el-button>
     </div>

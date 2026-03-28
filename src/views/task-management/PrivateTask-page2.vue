@@ -43,7 +43,7 @@
             >
               开始
             </el-button>
-            <el-button
+            <!-- <el-button
               size="small"
               type="danger"
               @click="stopTask(row)"
@@ -51,7 +51,7 @@
               :disabled="row.status === '未启动'"
             >
               结束
-            </el-button>
+            </el-button> -->
             <el-button size="small" type="danger" @click="deleteTask(row)" :loading="row.deleteLoading">
               删除
             </el-button>
@@ -79,11 +79,7 @@
           <el-input v-model="taskForm.task_name" />
         </el-form-item>
         <el-form-item label="仿真阶段" prop="simulationStage">
-          <el-select
-            v-model="taskForm.simulationStage"
-            placeholder="请选择仿真阶段"
-            @change="handleSimulationStageChange"
-          >
+          <el-select v-model="taskForm.simulationStage" placeholder="请选择仿真阶段">
             <el-option label="前处理" value="前处理" />
             <el-option label="后处理" value="后处理" />
             <el-option label="求解器" value="求解器" />
@@ -98,6 +94,7 @@
             </template>
             <template v-else-if="taskForm.simulationStage === '后处理'">
               <el-option label="通用后处理" value="通用后处理" />
+              <el-option label="多体" value="多体" />
             </template>
             <template v-else-if="taskForm.simulationStage === '求解器'">
               <el-option label="多体" value="多体" />
@@ -142,8 +139,8 @@ import {
   getTasksByProjectIdApi,
   createTaskApi,
   deleteTaskApi,
-  startTaskApi,
-  stopTaskApi
+  startTaskApi
+  // stopTaskApi
 } from "@/api/projectManagement/private/taskManagement"
 import type { task } from "@/api/projectManagement/private/taskManagement/types/taskManagement"
 
@@ -229,15 +226,6 @@ const handleSearch = () => {
   }
 }
 
-// 处理仿真阶段选择变化
-const handleSimulationStageChange = () => {
-  if (taskForm.value.simulationStage === "后处理") {
-    taskForm.value.type = "通用后处理"
-  } else {
-    taskForm.value.type = ""
-  }
-}
-
 // 新建任务
 const handleCreateTask = async () => {
   await taskFormRef.value?.validate(async (valid: any) => {
@@ -254,6 +242,7 @@ const handleCreateTask = async () => {
         type: taskForm.value.type,
         creator: taskForm.value.creator
       }
+      debugger
 
       // 从类型中提取计算资源信息
       let computeResource = ""
@@ -319,7 +308,7 @@ const startTask = async (row: any) => {
   try {
     row.startLoading = true
 
-    //调用开始任务API（后端工作尚未完成，暂时注释）
+    //调用开始任务API
     const response = await startTaskApi(row.taskId)
     if (response.code === 200) {
       ElMessage.success("任务已开始")
@@ -361,25 +350,25 @@ const startTask = async (row: any) => {
 }
 
 // 结束任务
-const stopTask = async (row: any) => {
-  try {
-    row.stopLoading = true
+// const stopTask = async (row: any) => {
+//   try {
+//     row.stopLoading = true
 
-    // 实际API调用应在此处
-    const response = await stopTaskApi(row.taskId)
-    if (response.code === 200) {
-      row.status = "已结束"
-      ElMessage.success("任务已结束")
-    } else {
-      ElMessage.error(response.message || "结束任务失败")
-    }
-  } catch (error) {
-    console.error("结束任务失败:", error)
-    ElMessage.error("结束任务失败")
-  } finally {
-    row.stopLoading = false
-  }
-}
+//     // 实际API调用应在此处
+//     const response = await stopTaskApi(row.taskId)
+//     if (response.code === 200) {
+//       row.status = "已结束"
+//       ElMessage.success("任务已结束")
+//     } else {
+//       ElMessage.error(response.message || "结束任务失败")
+//     }
+//   } catch (error) {
+//     console.error("结束任务失败:", error)
+//     ElMessage.error("结束任务失败")
+//   } finally {
+//     row.stopLoading = false
+//   }
+// }
 
 // 获取状态标签类型
 const getStatusTagType = (status: string) => {

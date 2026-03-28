@@ -192,6 +192,7 @@ const handleSubmitResource = async () => {
     ElMessage.success(res.message || "服务器资源调整成功")
     showServerResourceDialog.value = false
     currentServer.value = null
+    synchronousCloudServer()
     fetchServers()
   } catch (err: any) {
     ElMessage.error(err.message || "服务器资源调整失败")

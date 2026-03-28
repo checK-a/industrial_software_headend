@@ -3,7 +3,7 @@
 import { request } from "@/utils/service"
 import type { ApiResponse, FileItem, PageData } from "@/api/dataManagement/types/file"
 import { getToken } from "@/utils/cache/cookies"
-import axios from 'axios'
+import axios from "axios"
 
 // 数据库类型标识
 export enum DbType {
@@ -20,6 +20,7 @@ export function getFileListApi(params: {
   dbType: DbType
   pageNum: number
   pageSize: number
+  keyword?: string
 }): Promise<ApiResponse<PageData<FileItem>>> {
   return request<ApiResponse<PageData<FileItem>>>({
     url: "/dataManagement/files",
@@ -43,22 +44,19 @@ export function uploadFileApi(data: FormData): Promise<ApiResponse<FileItem>> {
 
 // 3. 文件下载接口（返回完整响应，包含 headers）
 export function downloadFileApi(params: { dbType: DbType; field: string }) {
-  return axios.get('/dataManagement/download', {
+  return axios.get("/dataManagement/download", {
     baseURL: import.meta.env.VITE_BASE_API,
     params,
-    responseType: 'blob',
+    responseType: "blob",
     timeout: 0,
     headers: {
-      Authorization: getToken() || ''
+      Authorization: getToken() || ""
     }
   })
 }
 
 // 4. 删除文件接口 - 新增这个函数
-export function deleteFileApi(params: {
-  dbType: DbType
-  fileId: string
-}): Promise<ApiResponse<null>> {
+export function deleteFileApi(params: { dbType: DbType; fileId: string }): Promise<ApiResponse<null>> {
   return request<ApiResponse<null>>({
     url: "/dataManagement/delete",
     method: "delete",

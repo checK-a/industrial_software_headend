@@ -11,13 +11,15 @@ interface Props {
   isTop?: boolean
   isFirstLevel?: boolean
   basePath?: string
+  level?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   isCollapse: false,
   isTop: false,
   isFirstLevel: true,
-  basePath: ""
+  basePath: "",
+  level: 1
 })
 
 /** 是否始终显示根菜单 */
@@ -63,6 +65,7 @@ const resolvePath = (routePath: string) => {
   <div
     v-if="!props.item.meta?.hidden"
     :class="{ 'simple-mode': props.isCollapse && !isTop, 'first-level': props.isFirstLevel }"
+    :style="{ 'padding-left': `${(props.level - 1) * 20}px` }"
   >
     <template v-if="!alwaysShowRootMenu && theOnlyOneChild && !theOnlyOneChild.children">
       <SidebarItemLink v-if="theOnlyOneChild.meta" :to="resolvePath(theOnlyOneChild.path)">
@@ -89,6 +92,7 @@ const resolvePath = (routePath: string) => {
           :is-collapse="props.isCollapse"
           :is-first-level="false"
           :base-path="resolvePath(child.path)"
+          :level="props.level + 1"
         />
       </template>
     </el-sub-menu>

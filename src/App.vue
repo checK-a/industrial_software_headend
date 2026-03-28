@@ -544,7 +544,7 @@ const connectWebSocket = () => {
   }
 }
 const reconnectWebSocket = () => {
-  if (reconnectAttempts.value < 100000) {
+  if (reconnectAttempts.value < 5) {
     reconnectAttempts.value++
     console.log(`WebSocket 尝试重连 (${reconnectAttempts.value}) 次...`)
     setTimeout(() => {
