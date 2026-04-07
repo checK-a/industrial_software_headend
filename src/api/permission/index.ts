@@ -28,22 +28,6 @@ export function changePermissionApi(userId: number, permission: number) {
 }
 
 /**
- * 更新用户任务权限(组管理员权限)
- * @param userId 用户ID
- * @param taskPermission 任务权限值 (0: 个人权限, 1: 组织权限)
- */
-export function updateUserTaskPermissionApi(userId: number, permission: number) {
-  return request<ApiResponse<void>>({
-    url: "/user/permission",
-    method: "POST",
-    data: {
-      userId,
-      permission
-    }
-  })
-}
-
-/**
  * 更新用户所属组织
  * @param userId 用户ID
  * @param orgId 组织ID (传空字符串表示移出组织)

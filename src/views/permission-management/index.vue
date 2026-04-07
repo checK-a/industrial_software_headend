@@ -16,19 +16,15 @@ import {
   ElSelect,
   ElOption
 } from "element-plus"
-import {
-  getUserPageApi,
-  changePermissionApi,
-  updateUserOrganizationApi,
-  updateUserTaskPermissionApi
-} from "@/api/permission"
+import { getUserPageApi, changePermissionApi, updateUserOrganizationApi } from "@/api/permission"
 import {
   getOrganizationListApi,
   createOrganizationApi,
   getOrganizationMembersApi,
   addMembersToOrganizationApi,
   removeMemberFromOrganizationApi,
-  getUnassignedMembersApi
+  getUnassignedMembersApi,
+  updateUserTaskPermissionApi
 } from "@/api/organizationManagement"
 import type { PermissionUser } from "@/api/permission/types/userInfo"
 import type { Organization, Member } from "@/api/organizationManagement/types/organization"
@@ -216,16 +212,12 @@ const removeMemberFromOrganization = async (memberId: string) => {
       type: "warning"
     })
 
-    const response = await removeMemberFromOrganizationApi(currentOrgId.value, memberId)
+    await removeMemberFromOrganizationApi(currentOrgId.value, memberId)
 
-    if (response.code === 200) {
-      ElMessage.success("成员移除成功")
-      fetchOrgMembers(currentOrgId.value)
-      fetchUnassignedMembers()
-      fetchUserData()
-    } else {
-      ElMessage.error(response.message || "成员移除失败")
-    }
+    ElMessage.success("成员移除成功")
+    fetchOrgMembers(currentOrgId.value)
+    fetchUnassignedMembers()
+    fetchUserData()
   } catch (error) {
     if ((error as Error).message !== "cancel") {
       console.error("成员移除失败:", error)
@@ -265,7 +257,7 @@ const toggleUserOrganizationPermission = async (row: PermissionUser) => {
     })
 
     const newPermission = row.taskPermission === 1 ? 0 : 1
-    await updateUserTaskPermissionApi(row.userId, newPermission)
+    await updateUserTaskPermissionApi(row.orgId, row.userId, newPermission)
     ElMessage.success("权限修改成功")
     fetchUserData()
   } catch (error) {

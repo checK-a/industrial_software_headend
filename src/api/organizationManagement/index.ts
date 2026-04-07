@@ -82,3 +82,16 @@ export function getUnassignedMembersApi(params: {
     params
   })
 }
+
+/**
+ * 更新用户组织权限(组管理员权限)
+ * @param userId 用户ID
+ * @param taskPermission 任务权限值 (0: 个人权限, 1: 组织权限)
+ */
+export function updateUserTaskPermissionApi(orgId: string, memberId: number, taskPermission: number) {
+  return request<ApiResponse<void>>({
+    url: `/organizations/${orgId}/members/${memberId}/group-admin`,
+    method: "PUT",
+    data: { taskPermission }
+  })
+}
