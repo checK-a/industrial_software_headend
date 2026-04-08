@@ -282,6 +282,8 @@ onBeforeUnmount(() => {
 
 <template>
   <div>
+    <div class="preview-tip">提示：可截取一张有代表性的仿真图片，后续在数据管理上传数据库文件时可作为预览图使用。</div>
+
     <!-- 按钮区域 - 单个启动按钮 -->
     <div class="button-group">
       <button @click="startExe" :disabled="isExeRunning || positionLock" class="exe-btn">通用后处理</button>
@@ -312,6 +314,16 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.preview-tip {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #ffe58f;
+  background: #fffbe6;
+  color: #8c6d1f;
+  font-size: 13px;
+}
+
 .button-group {
   margin-bottom: 10px;
 }

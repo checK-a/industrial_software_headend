@@ -12,9 +12,17 @@ import {
   ElDialog,
   ElForm,
   ElFormItem,
+  ElImage,
   ElMessageBox
 } from "element-plus"
-import { getFileListApi, uploadFileApi, downloadFileApi, DbType, deleteFileApi } from "@/api/dataManagement"
+import {
+  getFileListApi,
+  uploadFileApi,
+  downloadFileApi,
+  getPreviewImageApi,
+  DbType,
+  deleteFileApi
+} from "@/api/dataManagement"
 import { formatBytes } from "@/utils/format"
 import { formatDateTime } from "@/utils/format"
 
@@ -44,8 +52,17 @@ const searchKeyword = ref("")
 const showUploadDialog = ref(false)
 const uploadForm = reactive({
   fileName: "",
-  file: null as File | null
+  file: null as File | null,
+  previewImage: null as File | null
 })
+
+// 预览相关状态
+const showPreviewDialog = ref(false)
+const previewLoading = ref(false)
+const previewImageUrl = ref("")
+const previewTitle = ref("")
+const PREVIEW_IMAGE_MAX_SIZE = 10 * 1024 * 1024
+const PREVIEW_IMAGE_ACCEPT_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 // 获取文件列表
 const fetchFiles = async () => {
@@ -235,11 +252,115 @@ const handleFileChange = (file: File) => {
   }
 }
 
+// 预览图选择处理
+const handlePreviewImageChange = (file: File) => {
+  if (!PREVIEW_IMAGE_ACCEPT_TYPES.includes(file.type)) {
+    ElMessage.warning("预览图格式仅支持 JPG/PNG/WEBP")
+    uploadForm.previewImage = null
+    return
+  }
+  if (file.size > PREVIEW_IMAGE_MAX_SIZE) {
+    ElMessage.warning("预览图不能超过 10MB")
+    uploadForm.previewImage = null
+    return
+  }
+  uploadForm.previewImage = file
+}
+
+const resetUploadForm = () => {
+  uploadForm.fileName = ""
+  uploadForm.file = null
+  uploadForm.previewImage = null
+}
+
+const clearPreviewBlobUrl = () => {
+  if (previewImageUrl.value) {
+    URL.revokeObjectURL(previewImageUrl.value)
+    previewImageUrl.value = ""
+  }
+}
+
+const closePreviewDialog = () => {
+  showPreviewDialog.value = false
+  previewLoading.value = false
+  previewTitle.value = ""
+  clearPreviewBlobUrl()
+}
+
+const parseBlobErrorMessage = (blob: Blob): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!(blob instanceof Blob) || blob.type !== "application/json") {
+      resolve("")
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        const errorData = JSON.parse(reader.result as string)
+        resolve(errorData?.message || errorData?.msg || "")
+      } catch {
+        resolve("")
+      }
+    }
+    reader.onerror = () => resolve("")
+    reader.readAsText(blob)
+  })
+}
+
+// 预览图片
+const previewFileImage = async (row: any) => {
+  if (!row?.hasPreview) {
+    ElMessage.info("该文件暂无预览图")
+    return
+  }
+
+  previewLoading.value = true
+  previewTitle.value = row.fileName || "预览图片"
+  showPreviewDialog.value = true
+  clearPreviewBlobUrl()
+
+  try {
+    const response = await getPreviewImageApi({
+      dbType: selectedDatabase.value,
+      fileId: row.id
+    })
+
+    const blob = response.data
+    if (!(blob instanceof Blob) || blob.size === 0) {
+      throw new Error("未获取到预览图片")
+    }
+    previewImageUrl.value = URL.createObjectURL(blob)
+  } catch (error: any) {
+    let errorMessage = error.message || "获取预览图片失败"
+    if (error.response?.data instanceof Blob) {
+      const blobMessage = await parseBlobErrorMessage(error.response.data)
+      if (blobMessage) {
+        errorMessage = blobMessage
+      }
+    }
+    ElMessage.error(errorMessage)
+    closePreviewDialog()
+  } finally {
+    previewLoading.value = false
+  }
+}
+
 // 提交上传
 const submitUpload = async () => {
   if (!uploadForm.file || !uploadForm.fileName) {
     ElMessage.warning("请选择文件并填写文件名")
     return
+  }
+
+  if (uploadForm.previewImage) {
+    if (!PREVIEW_IMAGE_ACCEPT_TYPES.includes(uploadForm.previewImage.type)) {
+      ElMessage.warning("预览图格式仅支持 JPG/PNG/WEBP")
+      return
+    }
+    if (uploadForm.previewImage.size > PREVIEW_IMAGE_MAX_SIZE) {
+      ElMessage.warning("预览图不能超过 10MB")
+      return
+    }
   }
 
   isLoading.value = true
@@ -248,6 +369,9 @@ const submitUpload = async () => {
     formData.append("dbType", selectedDatabase.value)
     formData.append("fileName", uploadForm.fileName)
     formData.append("file", uploadForm.file)
+    if (uploadForm.previewImage) {
+      formData.append("previewImage", uploadForm.previewImage)
+    }
 
     const response = await uploadFileApi(formData)
 
@@ -255,8 +379,7 @@ const submitUpload = async () => {
     if (response.code === 200) {
       ElMessage.success("文件上传成功")
       showUploadDialog.value = false
-      uploadForm.fileName = ""
-      uploadForm.file = null
+      resetUploadForm()
       currentPage.value = 1
       fetchFiles()
     } else {
@@ -316,6 +439,12 @@ onMounted(() => {
           {{ formatDateTime(row.updateTime) }}
         </template>
       </el-table-column>
+      <el-table-column label="预览" width="110">
+        <template #default="{ row }">
+          <el-button v-if="row.hasPreview" type="primary" link @click="previewFileImage(row)">预览</el-button>
+          <span v-else>--</span>
+        </template>
+      </el-table-column>
       <el-table-column label="操作" width="140">
         <template #default="{ row }">
           <el-button type="primary" size="small" @click="downloadFile(row.id)"> 下载 </el-button>
@@ -337,7 +466,7 @@ onMounted(() => {
     />
 
     <!-- 上传文件对话框 -->
-    <el-dialog v-model="showUploadDialog" title="上传文件" width="500px">
+    <el-dialog v-model="showUploadDialog" title="上传文件" width="500px" @close="resetUploadForm">
       <el-form :model="uploadForm" label-width="80px">
         <el-form-item label="数据库">
           <div>{{ databases.find((db) => db.id === selectedDatabase)?.name }}</div>
@@ -352,7 +481,7 @@ onMounted(() => {
             class="upload-demo"
             :auto-upload="false"
             :show-file-list="false"
-            :on-change="(file: any) => handleFileChange(file.raw)"
+            :on-change="(file) => handleFileChange(file.raw)"
           >
             <template #trigger>
               <el-button type="primary">选择文件</el-button>
@@ -362,12 +491,36 @@ onMounted(() => {
             </div>
           </el-upload>
         </el-form-item>
+
+        <el-form-item label="预览图">
+          <el-upload
+            class="upload-demo"
+            :auto-upload="false"
+            :show-file-list="false"
+            accept="image/png,image/jpeg,image/webp"
+            :on-change="(file) => handlePreviewImageChange(file.raw)"
+          >
+            <template #trigger>
+              <el-button>选择预览图</el-button>
+            </template>
+            <div class="file-info" v-if="uploadForm.previewImage">
+              {{ uploadForm.previewImage.name }} ({{ (uploadForm.previewImage.size / 1024).toFixed(2) }}KB)
+            </div>
+          </el-upload>
+        </el-form-item>
       </el-form>
 
       <template #footer>
-        <el-button @click="showUploadDialog = false">取消</el-button>
+        <el-button @click="(showUploadDialog = false), resetUploadForm()">取消</el-button>
         <el-button type="primary" @click="submitUpload">上传</el-button>
       </template>
+    </el-dialog>
+
+    <el-dialog v-model="showPreviewDialog" :title="`${previewTitle} - 预览`" width="720px" @close="closePreviewDialog">
+      <div class="preview-content" v-loading="previewLoading">
+        <el-image v-if="previewImageUrl" :src="previewImageUrl" fit="contain" class="preview-image" />
+        <el-empty v-else-if="!previewLoading" description="暂无可预览图片" :image-size="100" />
+      </div>
     </el-dialog>
   </div>
 </template>
@@ -404,5 +557,17 @@ onMounted(() => {
   padding: 5px;
   background-color: #f5f7fa;
   border-radius: 4px;
+}
+
+.preview-content {
+  min-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-image {
+  width: 100%;
+  max-height: 65vh;
 }
 </style>

@@ -55,7 +55,20 @@ export function downloadFileApi(params: { dbType: DbType; field: string }) {
   })
 }
 
-// 4. 删除文件接口 - 新增这个函数
+// 4. 预览图片接口（返回图片流）
+export function getPreviewImageApi(params: { dbType: DbType; fileId: string }) {
+  return axios.get("/dataManagement/preview", {
+    baseURL: import.meta.env.VITE_BASE_API,
+    params,
+    responseType: "blob",
+    timeout: 0,
+    headers: {
+      Authorization: getToken() || ""
+    }
+  })
+}
+
+// 5. 删除文件接口
 export function deleteFileApi(params: { dbType: DbType; fileId: string }): Promise<ApiResponse<null>> {
   return request<ApiResponse<null>>({
     url: "/dataManagement/delete",
